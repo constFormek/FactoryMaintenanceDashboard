@@ -1,47 +1,36 @@
 import { useEffect, useRef, useState } from "react";
 import "./App.css";
+import MachineTable from "./components/MachineTable";
+import type { Machine } from "./types/machine";
+import { getMachines } from "./api/requests";
 
-type Status = "Running" | "Maintenance" | "Stopped";
-interface Machine {
-  id: number;
-  name: string;
-  location: string;
-  status: Status;
-}
 function App() {
   const [machines, setMachines] = useState<Machine[]>([]);
   const [error, setError] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const controllerRef = useRef<AbortController | null>(null);
-  const fetchData = async () => {
+  
+  const loadMachines = async () => {
     controllerRef.current?.abort();
     const controller = new AbortController();
     controllerRef.current = controller;
     try {
-      const response = await fetch("http://localhost:5259/machinez", {
-        signal: controller.signal,
-      });
-      if (!response.ok) {
-        throw new Error(`Couldn't load machines (error ${response.status})`);
-      }
-
-      const results: Machine[] = await response.json();
+      const results = await getMachines(controller.signal);
       setError("");
       setMachines(results);
     } catch (error) {
       if (controller.signal.aborted) return;
-      if (error instanceof Error) {
-        setError(error.message);
-      } else setError("Something went wrong.");
+      if (error instanceof Error) setError(error.message);
+      else setError("Something went wrong");
     } finally {
       if (!controller.signal.aborted) setIsLoading(false);
     }
-  };
+  }
 
   useEffect(() => {
     // setState in fetchData only runs after an await, not synchronously in the effect
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchData();
+    loadMachines();
 
     return () => {
       if (!controllerRef.current) return;
@@ -58,32 +47,28 @@ function App() {
   return (
     <div className="flex items-center justify-center flex-col">
       <div>Test application</div>
-      {error && <button role="alert" onClick={() => setError("")}><span>{error}</span> *Click to remove*</button>}
-      <div className="mx-10 my-30">
-        {machines.map((m) => (
-          <div key={m.id} className="m-2 ">
-            <p>
-              <span>{m.id}.</span> {m.name}
-            </p>
-            <p>Location: {m.location}</p>
-            <p>Status: {m.status}</p>
-          </div>
-        ))}
-      </div>
+      {error && (
+        <button role="alert" onClick={() => setError("")}>
+          <span>{error}</span> *Click to remove*
+        </button>
+      )}
+      
+      <MachineTable machines={machines}/>
 
       {isLoading && <div className="animate-spin m-2">e</div>}
 
       <button
         onClick={() => {
-          setIsLoading(true)
-          fetchData();
+          setIsLoading(true);
+          loadMachines();
         }}
-        className="bg-amber-200 rounded-full px-4 py-3 w-fit"
+        className="bg-amber-200 rounded-full px-4 py-3 w-fit "
       >
         REFRESH
       </button>
     </div>
   );
 }
+
 
 export default App;

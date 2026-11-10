@@ -1,0 +1,1 @@
+export const FETCH_URL_PATH = "http://localhost:5259/machines";
